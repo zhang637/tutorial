@@ -24,6 +24,7 @@
 	Ctrl+H 打开搜索对话框
 	Ctrl+G 工作区中的声明
 	Ctrl+Shift+G 工作区中的引用
+	Ctrl+Shift+H 递归查找谁引用了此变量、方法
 ##三. 导航
 	Ctrl+Shift+T 搜索类（包括工程和关联的第三jar包）
 	Ctrl+Shift+R 搜索工程中的文件
