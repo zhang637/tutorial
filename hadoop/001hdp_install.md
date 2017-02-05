@@ -29,7 +29,7 @@
 　　start_udev
 ##系统环境配置
 ###IP设置
-    ![](img/1.jpg)
+    
 ###主机名HOST配置
     vi /etc/hosts
     vi /etc/sysconfig/network
