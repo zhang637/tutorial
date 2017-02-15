@@ -1,5 +1,5 @@
-#HBASE
-##Hbase 测试
+# HBASE
+## HBase 测试
 切换到hbase用户：
 
 	su - hbase
@@ -22,7 +22,7 @@
 	
 	hbase-daemon.sh start thrift -p 8001 --infoport <infoport>
 
-##HBase 基础
+## HBase 基础
 	create 'traffic_hfile',{NAME => '201210', VERSIONS => 2}
 	create ‘scores','grade', ‘course' 
 	
@@ -63,56 +63,77 @@
 	scan 'test1', {STARTROW=>'user1|ts2', FILTER => "PrefixFilter ('user1')"}
 	scan 'test1', {STARTROW=>'user1|ts2', STOPROW=>'user2'}
 
-##HBase 高级用法
+## HBase2Hive
+创建hbase表并增加数据
+	
+	create 'short_urls', {NAME=>'u'},{NAME=>'s'}
+	put 'short_urls', 'bit.ly/aaaa', 's:hits', '100'
+	put 'short_urls', 'bit.ly/aaaa', 'u:url', 'hbase.apache.org'
+	put 'short_urls', 'bit.ly/abcd', 's:hits', '123'
+	put 'short_urls', 'bit.ly/abcd', 'u:url', 'example.com/foo'
+	scan 'short_urls'
+创建hive表
+	
+	CREATE EXTERNAL TABLE traffic_mr(key string, values string) 	STORED BY 'org.apache.hadoop.hive.hbase.HBaseStorageHandler' 
+	WITH SERDEPROPERTIES("hbase.columns.mapping" = ":key,201210:content") 	TBLPROPERTIES("hbase.table.name"="traffic_mr");
+	
+## HBase2Hive进阶
+hive中map的key将作为hbase的列名，map的value将作为该列名对应的值
+	
+	CREATE EXTERNAL TABLE traffic_hfile(value map<string,String>, row_key int) 
+	STORED BY 'org.apache.hadoop.hive.hbase.HBaseStorageHandler'
+	WITH SERDEPROPERTIES ("hbase.columns.mapping" = "201210:,:key")
+	;
 
--- hive hbase mapping --
-CREATE EXTERNAL TABLE user_app_cookie_list ( username STRING, app1_cookie_id BIGINT, app2_cookie_id BIGINT )
-STORED BY 'org.apache.hadoop.hive.hbase.HBaseStorageHandler'
-WITH SERDEPROPERTIES ("hbase.columns.mapping" = ":key, lf:app1#b, lf:app2#b")
-TBLPROPERTIES("hbase.table.name" = "test1");
+hive 0.12开始支持，使用通配符 * 来获取多个列。例如：想获取以某一前缀开始的列，创建表如下：
+	
+	CREATE TABLE hbase_table_1(value map<string,int>, row_key int) 
+	STORED BY 'org.apache.hadoop.hive.hbase.HBaseStorageHandler'
+	WITH SERDEPROPERTIES ("hbase.columns.mapping" = "cf:col_prefix.*,:key");
+hive 的数据类型处理，如：二进制
+	
+	CREATE TABLE hbase_table_1 (key int, value string, foobar double)
+	STORED BY 'org.apache.hadoop.hive.hbase.HBaseStorageHandler'
+	WITH SERDEPROPERTIES ("hbase.columns.mapping" = ":key#b,cf:val,cf:foo#b");
 
-select * from user_app_cookie_list;
+	CREATE TABLE hbase_table_1 (key int, value string, foobar double)
+	STORED BY 'org.apache.hadoop.hive.hbase.HBaseStorageHandler'
+	WITH SERDEPROPERTIES (
+	"hbase.columns.mapping" = ":key,cf:val#s,cf:foo",
+	"hbase.table.default.storage.type" = "binary");
+	
+将hbase的复合行键映射为hive的struct结构体
+	
+	CREATE EXTERNAL TABLE delimited_example(key struct<f1:string, f2:string>, value string) 
+	ROW FORMAT DELIMITED 
+	COLLECTION ITEMS TERMINATED BY '~' 
+	STORED BY 'org.apache.hadoop.hive.hbase.HBaseStorageHandler' 
+	WITH SERDEPROPERTIES ('hbase.columns.mapping'=':key,f:c1');
 
--- hive hbase mapping cf with binary --
+	CREATE TABLE hbase_ck_4(key struct<col1:string,col2:string,col3:string>, value string)
+    STORED BY 'org.apache.hadoop.hive.hbase.HBaseStorageHandler'
+    WITH SERDEPROPERTIES (
+	"hbase.table.name" = "hbase_custom2",
+	"hbase.mapred.output.outputtable" = "hbase_custom2",
+	"hbase.columns.mapping" = ":key,cf:string",
+	"hbase.composite.key.factory"="org.apache.hadoop.hive.hbase.SampleHBaseKeyFactory2");
+	
+	"hbase.composite.key.factory" should be the fully qualified class name of a class implementing HBaseKeyFactory. 
+	See SampleHBaseKeyFactory2 for a fixed length example in the same package. This class must be on your classpath in order for the above example to work
 
-http://www.abcn.net/2013/11/hive-hbase-mapping-column-family-with-binary-value.html
+Avro格式数据存储在hbase中
 
-CREATE EXTERNAL TABLE ts_string ( username STRING, visits map<string, int> )
-STORED BY 'org.apache.hadoop.hive.hbase.HBaseStorageHandler'
-WITH SERDEPROPERTIES ("hbase.columns.mapping" = ":key, cf:#s:b")
-TBLPROPERTIES("hbase.table.name" = "test1");
-
-CREATE EXTERNAL TABLE ts_int ( username STRING, visits map<int, int> )
-STORED BY 'org.apache.hadoop.hive.hbase.HBaseStorageHandler'
-WITH SERDEPROPERTIES ("hbase.columns.mapping" = ":key, cf:#s:b")
-TBLPROPERTIES("hbase.table.name" = "test1");
-
-CREATE EXTERNAL TABLE ts_int_long ( username STRING, visits map<int, bigint> )
-STORED BY 'org.apache.hadoop.hive.hbase.HBaseStorageHandler'
-WITH SERDEPROPERTIES ("hbase.columns.mapping" = ":key, cf:#s:b")
-TBLPROPERTIES("hbase.table.name" = "test1");
-
-select * from ts_int
-lateral view explode(visits) t as ts, page;
-
-select username, ts, page_id from ts_int
-lateral view explode(visits) t as ts, page_id;
-
-select username, pos, ts, page_id from ts_int
-lateral view posexplode(visits) t as pos, ts, page_id;
-
-username   pos   ts             page_id
-user1      1     1399999999     9
-user1      2     1400000000     8
-user1      3     1400000001     7
-user1      4     1400000002     8443
-user2      1     1500000000     17
-user2      2     1500000001     8444
-
-select username, from_unixtime(ts), page_id from ts_int lateral view explode(visits) t as ts, page_id;
-
-
-
+	CREATE EXTERNAL TABLE test_hbase_avro
+	ROW FORMAT SERDE 'org.apache.hadoop.hive.hbase.HBaseSerDe'
+	STORED BY 'org.apache.hadoop.hive.hbase.HBaseStorageHandler'
+	WITH SERDEPROPERTIES (
+	"hbase.columns.mapping" = ":key,test_col_fam:test_col",
+	"test_col_fam.test_col.serialization.type" = "avro",
+	"test_col_fam.test_col.avro.schema.url" = "hdfs://testcluster/tmp/schema.avsc")
+	TBLPROPERTIES (
+	"hbase.table.name" = "hbase_avro_table",
+	"hbase.mapred.output.outputtable" = "hbase_avro_table",
+	"hbase.struct.autogenerate"="true");
 
 ## 开发环境配置
 13/12/11 09:45:33 INFO client.ZooKeeperRegistry: ClusterId read in ZooKeeper is null

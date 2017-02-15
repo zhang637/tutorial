@@ -7,6 +7,8 @@
      row format delimited fields terminated by ','
      location '/user/traffic/oneM';
 ```
+show create table traffic
+
 ```
 CREATE EXTERNAL TABLE `traffic`(
   `cid` string, 
@@ -34,6 +36,5 @@ TBLPROPERTIES (
   'rawDataSize'='-1', 
   'totalSize'='0', 
   'transient_lastDdlTime'='1486475671')
-  ```
-  
+```
   
