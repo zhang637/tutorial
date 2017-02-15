@@ -1,12 +1,5 @@
-# bigdata_learning
+# 大数据平台安装
 ## 集成知识
-###GIT
-    $ echo "# bigdata_learning" >> README.md
-    $ git init
-    $ git add README.md
-    $ git commit -m "first commit"
-    $ git remote add origin https://github.com/zhang637/bigdata_learning.git
-    $ git push -u origin master
 ###LINUX
     cat /etc/issue
     cat /etc/redhat-release
@@ -31,9 +24,19 @@
 ###IP设置
     
 ###主机名HOST配置
-    vi /etc/hosts
-    vi /etc/sysconfig/network
-    hostname xxx
+vi /etc/hosts
+
+```
+127.0.0.1   localhost localhost.localdomain localhost4 localhost4.localdomain4
+192.168.108.173	zylhdp
+```    
+vi /etc/sysconfig/network
+
+```
+NETWORKING=yes
+HOSTNAME=zylhdp
+```
+hostname xxx
 ###安全Selinux关闭
      vi /etc/selinux/config
      setenforce 0
@@ -59,16 +62,22 @@
     #server 59.124.196.83                # 0.asia.pool.ntp.org
     ntpdate 210.72.145.44    
 ###mysql数据库
+```
 yum -y install mysql-server
 service mysqld start
 mysqladmin -uroot password Passw0rd
 create user 'root'@'hdp2' identified by 'Passw0rd';
 grant all privileges on *.* to 'root'@'hdp2';
 flush privileges;
+
+source /var/lib/ambari-server/resources/Ambari-DDL-MySQL-CREATE.sql
+```
 ###JDK安装
+```
+export JAVA_HOME=
 export PATH=$JAVA_HOME/bin/:$PATH
 export CLASSPATH=.:$JAVA_HOME/lib/dt.jar:$JAVA_HOME/lib/tools.jar
-
+```
 ##Ambari安装部署
 ### 离线安装源
     yum install httpd
@@ -84,7 +93,8 @@ export CLASSPATH=.:$JAVA_HOME/lib/dt.jar:$JAVA_HOME/lib/tools.jar
     进入/var/www/html/ambari 目录 -->  createrepo  ./  
 
     wget -nv http://public-repo-1.hortonworks.com/HDP/centos6/2.x/updates/2.5.0.0/hdp.repo  
-    vim /etc/yum.repos.d/ambari.repo 新建repo文件
+ vim /etc/yum.repos.d/ambari.repo 新建repo文件
+ 
         [Updates-ambari-2.4.1.0]
         name=ambari-2.4.1.0 - Updates
         baseurl=http://hdp2/AMBARI-2.4.1.0/centos6/2.4.1.0-22/
@@ -92,7 +102,8 @@ export CLASSPATH=.:$JAVA_HOME/lib/dt.jar:$JAVA_HOME/lib/tools.jar
         enabled=1
         priority=1
 
-    vim /etc/yum.repos.d/hdp.rep
+vim /etc/yum.repos.d/hdp.rep
+
     [HDP-2.5.0.0]
     name=HDP Version - HDP-2.5.0.0
     baseurl=http://hdp2/hdp/HDP/centos6/
@@ -132,79 +143,14 @@ export CLASSPATH=.:$JAVA_HOME/lib/dt.jar:$JAVA_HOME/lib/tools.jar
     http://192.168.0.120/ambari/HDP-UTILS-1.1.0.20/repos/centos6/
 
 ambari-server setup --jdbc-db=mysql --jdbc-driver=/usr/share/java/mysql-connector-java.jar
-create database oozie;
-create user 'oozie'@'hdp2' identified by 'Passw0rd';
-grant all privileges on *.* to 'oozie'@'hdp2';
-flush privileges;
-create database hive;
-create user 'hive'@'hdp2' identified by 'Passw0rd';
-grant all privileges on *.* to 'hive'@'hdp2';
-flush privileges;
-
-##HDFS
-sudo -u hdfs hdfs dfs -ls /
-
-##MapReduce测试
-    useradd hdpclient
-    usermod -a -G users hdpclient
-    sudo su - hdfs
-    hdfs dfs -mkdir /user/hdpclient
-    hdfs dfs -chown hdpclient:hdpclient /user/hdpclient
-    hdfs dfs -chmod -R 755 /user/hdpclient
-    su - hdpclient
-    hadoop jar /usr/hdp/current/hadoop-mapreduce-client/hadoop-mapreduce-examples-*.jar teragen 10000 tmp/teragenout
-    hadoop jar /usr/hdp/current/hadoop-mapreduce-client/hadoop-mapreduce-examples-*.jar terasort tmp/teragenout tmp/terasortout
-##Hbase 测试
-su - hbase
-hbase shell
-status 'detailed'
-hbase thrift start -p <port> --infoport <infoport>
-hbase rest start -p <port> --infoport <infoport>
-hbase-daemon.sh start thrift -p <port> --infoport <infoport>
-
-13/12/11 09:45:33 INFO client.ZooKeeperRegistry: ClusterId read in ZooKeeper is null
-
-    static Configuration hbaseConfiguration = HBaseConfiguration.create();
-    static {
-        hbaseConfiguration.addResource("hbase-site.xml");
-    }
-    HBaseAdmin admin = new HBaseAdmin(hbaseConfiguration);
-    if (admin.tableExists(tablename)) {// 如果表已经存在
-        System.out.println(tablename + "表已经存在!----------");
-    } else {
-        TableName tableName = TableName.valueOf(tablename);
-        HTableDescriptor tableDesc = new HTableDescriptor(tableName);
-        tableDesc.addFamily(new HColumnDescriptor(columnFamily));
-        admin.createTable(tableDesc);
-        System.out.println(tablename + "表已经成功创建!----------------");
-    }
-    
-    <property>
-        <name>hbase.zookeeper.quorum</name>
-        <value>hdp1:2181</value>
-    </property>
-    <property>
-        <name>hbase.rootdir</name>
-        <value>hdfs://hdp1:8020/apps/hbase/data</value>
-    </property>
-    <property>
-        <name>zookeeper.znode.parent</name>
-        <value>/hbase-unsecure</value>
-    </property>
-    <property>
-        <name>hbase.zookeeper.property.clientPort</name>
-        <value>2181</value>
-    </property>
-##pheonix 安装测试
-<property>
-    <name>hbase.defaults.for.version.skip</name>
-    <value>true</value>
-</property>
-hbase.regionserver.wal.codec : org.apache.hadoop.hbase.regionserver.wal.WALCellCodec  --> org.apache.hadoop.hbase.regionserver.wal.IndexedWALEditCodec
-hbase.region.server.rpc.scheduler.factory.class : org.apache.hadoop.hbase.ipc.PhoenixRpcSchedulerFactory
-hbase.rpc.controllerfactory.class : org.apache.hadoop.hbase.ipc.controller.ServerRpcControllerFactory
-phoenix.functions.allowUserDefinedFunctions : true
-
-cd /usr/hdp/current/phoenix-client/bin/ 
-./psql.py localhost:2181:/hbase-unsecure /usr/hdp/current/phoenix-client/doc/examples/WEB_STAT.sql /usr/hdp/current/phoenix-client/doc/examples/WEB_STAT.csv /usr/hdp/current/phoenix-client/doc/examples/WEB_STAT_QUERIES.sql
-
+	
+	create database oozie;
+	create user 'oozie'@'hdp2' identified by 'Passw0rd';
+	grant all privileges on *.* to 'oozie'@'hdp2';
+	flush privileges;
+	
+	create database hive;
+	create user 'hive'@'hdp2' identified by 'Passw0rd';
+	grant all privileges on *.* to 'hive'@'hdp2';
+	flush privileges;
+##
