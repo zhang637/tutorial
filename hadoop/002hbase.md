@@ -290,11 +290,11 @@ CONSTRAINT signal_strength_pk PRIMARY KEY(id));
 CREATE TABLE taxi_info (  TAXI_NUMBER varchar, TAXI_EVENT varchar, TAXI_STATUS varchar, TAXI_TIME varchar, TAXI_LNG varchar, TAXI_LAT varchar, TAXI_SPEED varchar, TAXI_ANGLE varchar, TAXI_GPSSTATUS varcharconstraint pk primary key("TAXI_NUMBER", "TAXI_TIME")) 
 psql.py  master,slave1,slave2  /opt/file/phoenix/phoenix/tb_nwQuality.sql
 ```
-MR加载数据
+##Phoenix加载数据
+执行hdfs目录
 
 ```
-执行hdfs目录
-export HADOOP_CLASSPATH=$(hbase classpath):$HADOOP_CLASSPATH
+**export HADOOP_CLASSPATH=$(hbase classpath):$HADOOP_CLASSPATH**
 hadoop jar /usr/crh/4.9.2.5-1051/phoenix/phoenix-4.6.0-HBase-1.1-client.jar org.apache.phoenix.mapreduce.CsvBulkLoadTool -t taxi_info -i hdfs://hadoop1:8020/user/traffic/20121018080757.txt -z hadoop2,hadoop3,hadoop4
 
 注意：1.表名区分大小写 2.后缀必须是csv 3.执行本地目录
@@ -312,7 +312,76 @@ $PHOENIX_HOME/bin/psql.py localhost:2181 $IMPORT_DATA/all_edges.csv
 /usr/hdp/current/phoenix-client/bin/psql.py -t MOVIES  -d $'\t' localhost:2181:/hbase-unsecure movies.csv
 /usr/hdp/current/phoenix-client/bin/psql.py -t RATINGS -d $'\t' localhost:2181:/hbase-unsecure ratings.csv
 ```
+hive数据查询
+	ln -s /usr/crh/current/phoenix-client/phoenix-client.jar /usr/crh/current/hive-server2/lib/phoenix-client.jar
+## 生成HBase并加载
 
-## HBase eclipse开发测试
+	hadoop jar target/elastic-test-0.0.1-mapreduce.jar com.martinkl.BulkLoad
+```
+public class BulkLoad {
 
-## HBase 服务器端运行
+    public static final String INPUT_PATH = "/Users/martin/gutenberg/*.txt";
+    public static final String STAGING_PATH = "/tmp/hbase-staging";
+    public static final String OUTPUT_PATH = "/tmp/hbase-bulkload";
+    public static final String HBASE_TABLE_NAME = "docs";
+    public static final byte[] HBASE_COL_FAMILY = "doc".getBytes();
+    public static final byte[] HBASE_COL_NAME = "text".getBytes();
+    public static final int TARGET_DOC_SIZE = 10000;
+
+    public static class BulkLoadMapper
+            extends Mapper<LongWritable, Text, ImmutableBytesWritable, KeyValue> {
+
+        private StringBuilder buf = new StringBuilder();
+        private Random random = new Random();
+
+        protected void map(LongWritable key, Text value, Context context)
+                throws IOException, InterruptedException {
+            buf.append(value);
+            buf.append("\n");
+            if (buf.length() >= TARGET_DOC_SIZE) emit(context);
+        }
+
+        protected void cleanup(Context context) throws IOException, InterruptedException {
+            emit(context);
+        }
+
+        private void emit(Context context) throws IOException, InterruptedException {
+            ImmutableBytesWritable key = new ImmutableBytesWritable();
+            key.set(new BigInteger(128, random).toString(16).getBytes("UTF-8"));
+            byte[] value = buf.toString().getBytes("UTF-8");
+            KeyValue kv = new KeyValue(key.get(), HBASE_COL_FAMILY, HBASE_COL_NAME, value);
+            context.write(key, kv);
+            buf = new StringBuilder();
+        }
+    }
+
+    public static void main(String[] args) throws Exception {
+        Configuration conf = new Configuration();
+        conf.set("hbase.table.name", HBASE_TABLE_NAME);
+        conf.set("hbase.fs.tmp.dir", STAGING_PATH);
+        conf.set("hbase.bulkload.staging.dir", STAGING_PATH);
+        HBaseConfiguration.addHbaseResources(conf);
+
+        Job job = new Job(conf);
+        job.setJarByClass(BulkLoad.class);
+        job.setInputFormatClass(TextInputFormat.class);
+        job.setMapperClass(BulkLoadMapper.class);
+        job.setMapOutputKeyClass(ImmutableBytesWritable.class);
+        job.setMapOutputValueClass(KeyValue.class);
+
+        HTable table = new HTable(conf, HBASE_TABLE_NAME);
+        HFileOutputFormat.configureIncrementalLoad(job, table);
+
+        FileInputFormat.addInputPath(job, new Path(INPUT_PATH));
+        FileOutputFormat.setOutputPath(job, new Path(OUTPUT_PATH));
+
+        job.waitForCompletion(true);
+    }
+}
+```
+
+	bin/hbase org.apache.hadoop.hbase.mapreduce.LoadIncrementalHFiles /tmp/hbase-bulkload docs
+	
+## HBase 高级API
+	TableMapReduceUtil.initTableMapperJob(BulkLoad.HBASE_TABLE_NAME, scan,
+            HBaseTableMapper.class, NullWritable.class, MapWritable.class, job);

@@ -1,5 +1,5 @@
 # Hive知识总结
-## 创建外部表
+## 外部表
 ```
   CREATE EXTERNAL TABLE IF NOT EXISTS traffic (
      cid String, eventtype int,status int,ctime string,langitude double,lantitude  double, cspeed double,direction int,valstatus int)
@@ -36,5 +36,10 @@ TBLPROPERTIES (
   'rawDataSize'='-1', 
   'totalSize'='0', 
   'transient_lastDdlTime'='1486475671')
+```
+## 查询
+```
+select row_key,value['20121030090009'] from traffic_hfile limit 1;
+select key,split(value,'\;') from traffic_mr limit 1;
 ```
   

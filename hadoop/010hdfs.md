@@ -25,12 +25,15 @@
 ## 
 安装 hadoop-hdfs-fuse
 	
-	yum install -y  hadoop-hdfs-fuse
+		yum install -y  hadoop-hdfs-fuse
 
 挂载
 	
 	mkdir /HDFS
 	hadoop-fuse-dfs   dfs://hadoop1:8020 /HDFS -obig_writes
-
-
-
+	
+获取hdfs数据之本地	
+	
+	hdfs dfs -get /user/traffic /opt/traffic
+	sudo -u hdfs hadoop dfs -du -h /user/
+	hadoop distcp hdfs://hadoop1:8020/user/traffic hdfs://10.0.6.30:8020/user/traffic
